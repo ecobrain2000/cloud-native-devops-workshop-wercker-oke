@@ -4,7 +4,7 @@ box:
 #  id: jimador/docker-jdk-8-maven-node
 ports:
   - 8080
-
+ 
 #Build our application using Maven, just as we always have
 build:
   steps:
@@ -14,39 +14,55 @@ build:
     - install-packages:
         packages: maven
     - script:
-        name: maven meetup-handson-env-backend build
-        cwd: meetup-handson-env-backend
+        name: maven helidon build
+        cwd: helidon-movie-api-mp
+        code: mvn clean package 
+    - script:
+        name: maven spring boot build
+        cwd: springboot-movie-people-api
         code: mvn clean package
 
 #Push the docker image with our built and tested application to the Oracle Container Registry
-meetup-handson-env-backend-push:
+push-release-1:
   steps:
     - internal/docker-push:
         username: $DOCKER_USERNAME
         password: $OCI_AUTH_TOKEN
         repository: $DOCKER_REGISTRY/$DOCKER_REPO
         registry: https://$DOCKER_REGISTRY/v2
-        tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT-meetup-handson-env-backend
-        working-dir: /pipeline/source/meetup-handson-env-backend
+        tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT-helidon-movie-api-mp
+        working-dir: /pipeline/source/helidon-movie-api-mp
         ports: 8080
-        cmd: java -jar target/meetup-handson-env-backend-1.0.jar
+        cmd: java -jar target/helidon-movie-api-mp.jar
 
-meetup-handson-env-frontend-push:
+push-release-2:
+  steps:
+    - internal/docker-push:
+        username: $DOCKER_USERNAME
+        password: $OCI_AUTH_TOKEN
+        repository: $DOCKER_REGISTRY/$DOCKER_REPO
+        registry: https://$DOCKER_REGISTRY/v2
+        tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT-springboot-movie-people-api
+        working-dir: /pipeline/source/springboot-movie-people-api
+        ports: 8000
+        cmd: java -jar target/springboot-movie-people-api-1.0.jar
+
+push-release-3:
   steps:
     - script:
         name: pwd
         code: pwd
     - internal/docker-build:
-        context: meetup-handson-env-frontend
-        dockerfile: Dockerfile
-        image-name: meetup-handson-env-frontend
+        context: jet-movie-msa-ui
+        dockerfile: Dockerfile 
+        image-name: jet-movie-msa-ui
     - internal/docker-push:
-        image-name: meetup-handson-env-frontend
+        image-name: jet-movie-msa-ui
         username: $DOCKER_USERNAME
         password: $OCI_AUTH_TOKEN
         repository: $DOCKER_REGISTRY/$DOCKER_REPO
         registry: https://$DOCKER_REGISTRY/v2
-        tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT-meetup-handson-env-frontend
+        tag: $WERCKER_GIT_BRANCH-$WERCKER_GIT_COMMIT-jet-movie-msa-ui
 
 #Deploy our container from the Oracle Container Registry to the Oracle Container Engine (Kubernetes)
 deploy-to-cluster:
@@ -115,22 +131,33 @@ deploy-to-cluster:
         command: create secret docker-registry wercker --docker-server=$DOCKER_REGISTRY --docker-email=nobody@oracle.com --docker-username=$DOCKER_USERNAME --docker-password='$OCI_AUTH_TOKEN'; echo create registry secret
     - script:
         name: "Visualise Kubernetes config"
-        code: cat kube-meetup-handson-env-backend-config.yml
+        code: cat kube-helidon-movie-api-mp-config.yml
 
     - kubectl:
-        name: deploy meetup-handson-env-backend service to kubernetes
+        name: deploy helidon-movie-api-mp to kubernetes
         server: $KUBERNETES_MASTER
         #        token: $KUBERNETES_AUTH_TOKEN
         insecure-skip-tls-verify: true
-        command: apply -f kube-meetup-handson-env-backend-config.yml
+        command: apply -f kube-helidon-movie-api-mp-config.yml
 
     - script:
         name: "Visualise Kubernetes config"
-        code: cat kube-meetup-handson-env-frontend-config.yml
+        code: cat kube-springboot-movie-people-api-config.yml
 
     - kubectl:
-        name: deploy kube-meetup-handson-env-frontend ui to kubernetes
+        name: deploy springboot-movie-people-api to kubernetes
         server: $KUBERNETES_MASTER
         #        token: $KUBERNETES_AUTH_TOKEN
         insecure-skip-tls-verify: true
-        command: apply -f kube-meetup-handson-env-frontend-config.yml
+        command: apply -f kube-springboot-movie-people-api-config.yml
+
+    - script:
+        name: "Visualise Kubernetes config"
+        code: cat kube-jet-movie-msa-ui-config.yml
+
+    - kubectl:
+        name: deploy jet-movie-msa-ui to kubernetes
+        server: $KUBERNETES_MASTER
+        #        token: $KUBERNETES_AUTH_TOKEN
+        insecure-skip-tls-verify: true
+        command: apply -f kube-jet-movie-msa-ui-config.yml
