@@ -68,20 +68,19 @@ deploy-to-cluster:
     - script:
         name: install oci cli
         code: |
-          curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh > install.sh
-          chmod +x install.sh
-          ./install.sh --accept-all-defaults
-          rm -Rf ~/.oci
-          mkdir ~/.oci
-          cat > ~/.oci/config << EOF
-          [DEFAULT]
-          user=$USER_OCID
-          fingerprint=$FINGERPRINT
-          key_file=~/.oci/$PRIVATE_KEY
-          tenancy=$TENANCY_OCID
-          region=$REGION
-          EOF
-
+            curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh > install.sh
+            chmod +x install.sh
+            ./install.sh --accept-all-defaults
+            rm -Rf ~/.oci
+            mkdir ~/.oci
+            cat > ~/.oci/config << EOF
+            [DEFAULT]
+            user=$USER_OCID
+            fingerprint=$FINGERPRINT
+            key_file=~/.oci/$PRIVATE_KEY
+            tenancy=$TENANCY_OCID
+            region=$REGION
+            EOF
     - script:
         name: "Visualise OCI config"
         code: cat ~/.oci/config
@@ -94,11 +93,13 @@ deploy-to-cluster:
     - script:
         name: create kubeconfig
         code: |
-          echo $PATH
-          export PATH=$PATH:/root/bin
-          mkdir -p ~/.kube
-          $OCICLI_GET_KEY_COMMAND
-          export KUBECONFIG=~/.kube/config
+            echo $PATH
+            export OCI_CLI_SUPPRESS_FILE_PERMISSIONS_WARNING=True
+            export PATH=$PATH:/root/bin
+            mkdir -p ~/.kube
+            oci setup repair-file-permissions --file ~/.oci/config
+            $OCICLI_GET_KEY_COMMAND
+            export KUBECONFIG=~/.kube/config
     - kubectl:
         name: delete secret
         server: $KUBERNETES_MASTER
